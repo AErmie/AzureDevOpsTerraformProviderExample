@@ -1,0 +1,34 @@
+trigger: none
+  # branches:
+  #   include:
+  #     - master
+  # paths:
+  #   include:
+  #     # - /<PATH TO .TF FILE>
+
+pool:
+  vmImage: "ubuntu-latest"
+
+variables:
+  - group: <ADO VARIABLE GROUP NAME>
+  - name: StateFile
+    value: TFStateFileName.tfstate
+
+steps:
+  - task: ms-devlabs.custom-terraform-tasks.custom-terraform-installer-task.TerraformInstaller@0
+    displayName: "Install Terraform"
+    inputs:
+      terraformVersion: '0.12.28' # Set your applicable Terraform version here
+  - script: terraform version
+    displayName: "Terraform Version"
+  - script:  az login --service-principal -u $(application_id) -p $(SPNPwd) --tenant $(tenant_id)
+    displayName: "Log Into Azure"
+  - script: terraform init -backend-config=resource_group_name=$(StorageResourceGroup) -backend-config="storage_account_name=$(StorageAccountName)" -backend-config="container_name=$(ContainerName)" -backend-config="access_key=$(SASKey)" -backend-config="key=$(StateFile)"
+    displayName: "Terraform Init"
+    workingDirectory: $(System.DefaultWorkingDirectory)/<PATH TO TERRAFORM FILES>
+  - script: terraform plan -var="client_id=$(application_id)" -var="client_secret=$(SPNPwd)" -var="tenant_id=$(tenant_id)" -var="subscription_id=$(subscription_id)" -var-file="<SOME>.tfvars" -out="<SOME>.plan"
+    displayName: "Terraform Plan"
+    workingDirectory: $(System.DefaultWorkingDirectory)/<PATH TO TERRAFORM FILES>
+  - script: terraform apply <SOME>.plan
+    displayName: "Terraform Apply"
+    workingDirectory: $(System.DefaultWorkingDirectory)/<PATH TO TERRAFORM FILES>
